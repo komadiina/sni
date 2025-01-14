@@ -1,0 +1,4 @@
+package org.unibl.etf.sni.controller;
+
+public class CsrfController {
+}
