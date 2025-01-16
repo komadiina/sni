@@ -41,7 +41,11 @@ export default function OTP(props) {
         <p className="text-2xl">2FA</p>
         <p className="italic">{ localStorage.getItem("message") ?? " " }</p>
 
-        <input type="text" placeholder="Code" className="w-full h-12 p-4 rounded-xl text-lg"/>
+        <input type="text" placeholder="Code" className="w-full h-12 p-4 rounded-xl text-lg"
+          onKeyDown={(event) => {
+            if (event.key === 'Enter')
+              submitOtp();
+          }}/>
 
         <button className="w-full h-12 rounded-xl bg-neutral-700 text-white text-lg" onClick={ () => {
           submitOtp();

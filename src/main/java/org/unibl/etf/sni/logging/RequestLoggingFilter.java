@@ -31,7 +31,8 @@ public class RequestLoggingFilter extends HttpFilter {
                 "/api/auth/otp",
                 "/api/auth/register",
                 "/api/order",
-                "/api/order/.*"
+                "/api/order/.*",
+                "/api/auth/.*"
         ));
     }
 
@@ -40,7 +41,7 @@ public class RequestLoggingFilter extends HttpFilter {
             throws IOException, ServletException {
         String ipAddress = request.getRemoteAddr();
         String userAgent = request.getHeader("User-Agent");
-        String endpoint = request.getRequestURI();
+        String endpoint = request.getMethod() + " " + request.getRequestURI();
 
         siem.logRequest(ipAddress, userAgent, endpoint, "[SIEM] New request.");
 
@@ -49,6 +50,11 @@ public class RequestLoggingFilter extends HttpFilter {
             chain.doFilter(request, response);
             return;
         }
+
+
+        // HAHSHAHAHHAHAHA JER SAM DODAO <METHOD> PREFIKS U ENDPOINT PA GA NE WHITELISTUJE ASDASDNAKJSDNASKJH IZGORIO
+        if (endpoint.contains(" "))
+            endpoint = endpoint.split(" ")[1];
 
         String reason = isMaliciousRequest(request);
         if (reason != null && !whitelistEndpoints.contains(endpoint) && !isWhitelisted(endpoint)) {

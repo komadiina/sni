@@ -96,8 +96,6 @@ public class PaypalController {
 
     @GetMapping("/catalog")
     public ResponseEntity<?> getCatalog() {
-        System.out.println("hello");
-
         SimpleResponse response = getToken();
         String token = response.getAditional("access_token").toString();
         String url = "https://api-m.sandbox.paypal.com/v1/catalogs/products";

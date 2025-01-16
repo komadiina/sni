@@ -35,7 +35,14 @@ public class UserController {
     }
 
     @GetMapping
-    public ResponseEntity<?> getUserByUsername(@RequestParam(name = "username", required = false) String username, HttpServletRequest request) {
+    public ResponseEntity<?> getAllUsers() {
+        List<User> result = userService.getAllUsers();
+        result.forEach(user -> user.setPassword("<obscured>"));
+        return new ResponseEntity<>(result, HttpStatus.OK);
+    }
+
+    @GetMapping("/{username}")
+    public ResponseEntity<?> getUserByUsername(@PathVariable(name = "username") String username, HttpServletRequest request) {
         if (!accessController.isAuthenticated(request.getHeader("Authorization").split(" ")[1])) {
             return new ResponseEntity<>(new SimpleResponse("Invalid or expired token.", null), HttpStatus.UNAUTHORIZED);
         }
@@ -73,5 +80,25 @@ public class UserController {
         ParsableJwt jwt = JwtStore.getInstance().getToken(token);
         User user = userService.findByUsername(jwt.getPayload().getSub());
         return new ResponseEntity<>(user, HttpStatus.OK);
+    }
+
+    @PutMapping("/{username}")
+    public ResponseEntity<?> updateUser(@PathVariable(value = "username") String username, @RequestBody User user) {
+        SimpleResponse response = new SimpleResponse();
+
+        if (username == null) {
+            response.setMessage("Missing required path variable (username).");
+            return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+        }
+
+        try {
+            userService.updateUser(username, user);
+            response.setMessage("Updated successfully.");
+            response.addAditional("user", user);
+            return new ResponseEntity<>(response, HttpStatus.OK);
+        } catch (Exception ex) {
+            response.setMessage(ex.getMessage());
+            return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
     }
 }

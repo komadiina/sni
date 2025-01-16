@@ -1,13 +1,21 @@
 import api from "../api/axios";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 const Login = () => {
   const [message, setMessage] = useState("");
 
-  if (api.isSignedIn()) {
-    window.location.href = '/dashboard'
-    return;
-  }
+  useEffect(() => {
+    const fetchSignedIn = async () => {
+      return await api.autoLogin();
+    }
+
+    api.autoLogin().then((res) => {
+      if (res) {
+        window.location.href = "/dashboard";
+      }
+    })
+  }, []);
+
 
   const signIn = async () => {
     const username = document.getElementById("username").value;
@@ -64,12 +72,13 @@ const Login = () => {
         <h1 className={"text-4xl"}>Hello!</h1>
         <p className="text-2xl">Sign in to continue.</p>
 
-        <input id="username" type="text" placeholder="Username" className="w-80 h-12 p-4 rounded-xl text-lg" />
-        <input id="password" type="password" placeholder="Password" className="w-80 h-12 p-4 rounded-xl text-lg" />
+        <input id="username" type="text" placeholder="Username" className="w-80 h-12 p-4 rounded-xl text-lg"
+               onKeyDown={async (event) => { if (event.key === "Enter") { await signIn(); } }}/>
+        <input id="password" type="password" placeholder="Password" className="w-80 h-12 p-4 rounded-xl text-lg"
+               onKeyDown={async (event) => { if (event.key === "Enter") { await signIn(); } }}/>
 
         <button className="w-32 h-12 rounded-xl bg-neutral-700 text-white text-lg"
                 onClick={async () => { await signIn(); }}
-                onKeyDown={async (event) => { if (event.key === "Enter") { await signIn(); } }}
         >
           Sign in
         </button>

@@ -14,8 +14,8 @@ export default function TokenExpired(props) {
   }
 
   const handleLogout = async () => {
-    localStorage.removeItem('jwt')
     api.signOut()
+    localStorage.removeItem('jwt')
     window.location.href = '/login'
   }
 

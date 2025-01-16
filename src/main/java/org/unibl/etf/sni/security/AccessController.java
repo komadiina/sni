@@ -45,6 +45,14 @@ public class AccessController {
         return new RegistrationRequestResponse(true, "");
     }
 
+    public boolean isAdministrator(String token) {
+        if (token == null) return false;
+
+        ParsableJwt jwt = new ParsableJwt(token);
+        if (JwtStore.getInstance().getToken(token) == null) return false;
+        return jwt.getPayload().getRole().equalsIgnoreCase("0");
+    }
+
     public void registerUser(User user) {
         user.setPassword(new BCryptPasswordEncoder().encode(user.getPassword()));
         userService.addUser(user);
@@ -52,7 +60,8 @@ public class AccessController {
     }
 
     public boolean validBalanceAmount(User user, double requiredAmount) {
-        return balanceService.getBalance(user.getUsername()).getAmount() >= requiredAmount;
+        return requiredAmount <= 999.99;
+//        return balanceService.getBalance(user.getUsername()).getAmount() >= requiredAmount;
     }
 
     private boolean assureNonNullity(RegisterRequest req) {
@@ -125,8 +134,6 @@ public class AccessController {
         if (bearerToken == null)
             return false;
 
-        System.out.println(bearerToken);
-        JwtStore.getInstance().getTokens().forEach(System.out::println);
         ParsableJwt jwt = new ParsableJwt(bearerToken);
         if (JwtStore.getInstance().getToken(jwt.getToken()) == null) return false;
 

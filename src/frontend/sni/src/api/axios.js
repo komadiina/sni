@@ -1,14 +1,39 @@
 import axios from "axios";
 
+
 export const api = {
   instance: axios.create({ baseURL: import.meta.env.VITE_API_HOST }),
   setToken: (token) => localStorage.setItem("jwt", token),
   getToken: () => localStorage.getItem("jwt"),
-  isSignedIn: () => api.getToken() !== null && api.getToken() !== "undefined" && api.getToken() !== undefined,
+  autoLogin: async () => {
+    const token = api.getToken();
+    if (!token) return false;
+
+    let status = false;
+
+    // try to POST /auth/login/jwt with token in Authorization
+    await api.instance.post(
+        "https://localhost:8443/api/auth/login/jwt",
+        { "token": api.getToken() })
+      .then((res) => {
+        console.log(res.data)
+        status = true;
+      }).catch((err) => {
+        status = false
+      })
+
+    return status;
+  },
+  isSignedIn: () => {
+    return api.getToken();
+
+  },
   getRole: () => {
-    if (api.isSignedIn()) {
-      return JSON.parse(atob(api.getToken().split(".")[1])).role;
-    }
+    let role = -1;
+    if (api.isSignedIn())
+      role = JSON.parse(atob(api.getToken().split(".")[1])).role;
+
+    return role;
   },
   clearToken: () => localStorage.removeItem("jwt"),
   redirectUnauthorized: () => {
@@ -17,7 +42,7 @@ export const api = {
   },
   redirectToDashboard: () => {
     let role = api.getRole();
-    console.log("role:" +role);
+    console.log("role:" + role);
 
     if (api.getRole() === "0")
       window.location.href = "/admin";
@@ -26,7 +51,7 @@ export const api = {
     else window.location.href = "/login"
   },
   signOut: () => {
-    api.instance.post("https://localhost:8443/api/auth/logout", {}, {headers: {Authorization: `Bearer ${api.getToken()}`}});
+    api.instance.post("https://localhost:8443/api/auth/logout", {}, { headers: { Authorization: `Bearer ${ api.getToken() }` } });
 
     api.clearToken();
     localStorage.removeItem('username')
@@ -36,7 +61,7 @@ export const api = {
     api.instance.post(
       "https://localhost:8443/api/auth/extend-token",
       {},
-      {headers: {Authorization: `Bearer ${api.getToken()}`}}
+      { headers: { Authorization: `Bearer ${ api.getToken() }` } }
     ).then((res) => {
       console.log(res.data)
       api.redirectToDashboard();
@@ -46,7 +71,7 @@ export const api = {
 
 api.instance.interceptors.request.use((config) => {
   const jwt = api.getToken();
-  if (jwt) config.headers.Authorization = `Bearer ${api.getToken()}`;
+  if (jwt) config.headers.Authorization = `Bearer ${ api.getToken() }`;
   config.headers["Content-Type"] = "application/json";
   return config;
 });

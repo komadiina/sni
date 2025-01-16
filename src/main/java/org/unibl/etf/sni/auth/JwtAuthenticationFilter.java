@@ -18,6 +18,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import org.unibl.etf.sni.logging.SIEM;
+import org.unibl.etf.sni.security.ParsableJwt;
 import org.unibl.etf.sni.service.JwtService;
 import org.unibl.etf.sni.service.UserService;
 
@@ -29,13 +30,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     @Autowired
     private UserService userService;
-    @Autowired
-    private SIEM sIEM;
 
-//    public JwtAuthenticationFilter(JwtService jwtService, UserService userService) {
-//        this.jwtService = jwtService;
-//        this.userService = userService;
-//    }
+    @Autowired
+    private SIEM siem;
 
     @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request,
@@ -52,7 +49,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return;
         }
 
-        final String jwt;
+        String jwt;
         String username;
         if (!authHeader.startsWith("Bearer ")) {
             filterChain.doFilter(request, response);
@@ -63,9 +60,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         try {
             username = jwtService.extractUserName(jwt);
         } catch (Exception e) {
-            SIEM siem = new SIEM();
             siem.logMaliciousRequest(request.getRemoteAddr(), request.getHeader("User-Agent"), request.getRequestURI(),
                     "[SIEM] Malicious request detected - token expired.");
+
+            // remove expired token from database
+            ParsableJwt parsableJwt = JwtStore.getInstance().getToken(jwt);
+            JwtStore.getInstance().removeTokenByUsername(parsableJwt.getPayload().getSub());
 
             // Respond with a status code or message indicating token expiration
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);

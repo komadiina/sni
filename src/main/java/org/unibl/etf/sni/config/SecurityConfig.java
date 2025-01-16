@@ -46,6 +46,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/admin", "/api/admin/**").hasRole("0")
                         .requestMatchers("/api/user", "/api/user/**").hasAnyRole("1", "0")
                         .requestMatchers("/api/paypal/**", "/api/paypal/order/catalog").hasAnyRole("1", "0")
+                        .requestMatchers("/api/balance", "/api/balance/**").hasAnyRole("1", "0") // deep-filtering
                         .requestMatchers("/api/auth/**").permitAll()
                 )
                 .cors(Customizer.withDefaults())

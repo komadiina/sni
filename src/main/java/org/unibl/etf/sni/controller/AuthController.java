@@ -2,6 +2,7 @@ package org.unibl.etf.sni.controller;
 
 import io.jsonwebtoken.ExpiredJwtException;
 import jakarta.servlet.http.HttpServletRequest;
+import org.bouncycastle.crypto.params.CramerShoupPublicKeyParameters;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -15,6 +16,8 @@ import org.unibl.etf.sni.model.*;
 import org.unibl.etf.sni.security.*;
 import org.unibl.etf.sni.service.*;
 import java.net.URI;
+import java.util.HashMap;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -38,6 +41,34 @@ public class AuthController {
 
     public AuthController(PasswordEncoder passwordEncoder) {
         this.passwordEncoder = passwordEncoder;
+    }
+
+    @PostMapping("/login/jwt")
+    public ResponseEntity<?> loginJwt(@RequestBody Map<String, String> body) {
+        ResponseEntity<?> failedLogin = new ResponseEntity<>(
+                new SimpleResponse("JWT auto-login failed.", new HashMap<>()),
+                HttpStatus.UNAUTHORIZED
+        );
+
+        SimpleResponse response = new SimpleResponse();
+        String token = body.get("token");
+
+        if (token == null) return failedLogin;
+
+        try {
+            if (token.startsWith("Bearer"))
+                token = AccessController.extractToken(token);
+
+            ParsableJwt jwt = JwtStore.getInstance().getToken(token);
+            if (jwt == null) return failedLogin;
+
+            response.setMessage("JWT auto-login successful.");
+            return new ResponseEntity<>(response, HttpStatus.OK);
+        } catch (Exception e) {
+            response.setMessage("JWT auto-login failed.");
+            response.addAditional("error", e.getMessage());
+            return new ResponseEntity<>(response, HttpStatus.UNAUTHORIZED);
+        }
     }
 
     @PostMapping("/login")
@@ -105,7 +136,7 @@ public class AuthController {
         try {
             if (!otpService.validateOtp(username, otp)) {
                 response.setMessage("An invalid, expired or used authentication code (OTP) has been provided.");
-                return new ResponseEntity<>(response, HttpStatus.UNAUTHORIZED);
+                return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
             }
         } catch (Exception exception) {
             response.setMessage(exception.getMessage());
@@ -135,7 +166,6 @@ public class AuthController {
     @PostMapping("/register")
     public ResponseEntity<?> register(@RequestBody RegisterRequest request) {
         SimpleResponse response = new SimpleResponse();
-        System.out.println(request.formUser());
 
         if (!accessController.validateRegistrationRequest(request).isValid()) {
             response.setMessage(accessController.validateRegistrationRequest(request).getMessage());

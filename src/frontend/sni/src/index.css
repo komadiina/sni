@@ -72,3 +72,20 @@ button:focus-visible {
     background-color: #f9f9f9;
   }
 }
+
+
+.hover-highlight {
+  @apply bg-opacity-0 hover:bg-opacity-25 duration-300 transition-all bg-teal-50;
+}
+
+.clickable {
+  @apply hover:cursor-pointer;
+}
+
+.user-info-editable {
+  @apply hover:bg-opacity-25 duration-300 transition-all clickable flex flex-col gap-2 bg-amber-50 bg-opacity-5 rounded-xl p-4 w-1/2 items-start;
+
+  input {
+    @apply p-4 w-full rounded-xl bg-opacity-15 bg-amber-50;
+  }
+}

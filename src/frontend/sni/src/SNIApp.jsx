@@ -10,6 +10,7 @@ import OTP from './pages/OTP';
 import DashboardUser from './pages/dashboard/User';
 import DashboardAdmin from './pages/dashboard/Admin';
 import NotFound from './pages/NotFound';
+import UserInfo from "./pages/UserInfo.jsx";
 
 function SNIApp() {
   return (
@@ -23,6 +24,7 @@ function SNIApp() {
         <Route path="/admin" element={<DashboardAdmin />} />
         <Route path="/pay" element={<LifeInsurancePolicy/>}/>
         <Route path="/token-expired" element={<TokenExpired />} />
+        <Route path="/user-info/:username" element={<UserInfo />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </BrowserRouter>

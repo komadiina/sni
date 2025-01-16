@@ -49,8 +49,7 @@ public class JwtService {
         return Jwts.builder().setClaims(extraClaims)
                 .setSubject(userDetails.getUsername())
                 .setIssuedAt(new Date(System.currentTimeMillis()))
-//                .setExpiration(new Date(System.currentTimeMillis() + 1000 * 60 * 24))
-                .setExpiration(((new Date(System.currentTimeMillis() + (6 * 1000))))) // 6 seconds (TESTING PURPOSES)
+                .setExpiration(new Date(System.currentTimeMillis() + 1800 * 1000))
                 .signWith(getSigningKey(), SignatureAlgorithm.HS256).compact();
 
     }
@@ -70,7 +69,7 @@ public class JwtService {
 
     public String extractUserRole(String token) {
         Claims claims = extractAllClaims(token);
-        return (String) claims.get("role"); // Ensure role is prefixed with ROLE_
+        return (String) claims.get("role");
     }
 
     private Key getSigningKey() {

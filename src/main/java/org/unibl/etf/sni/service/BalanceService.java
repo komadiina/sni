@@ -1,12 +1,15 @@
 package org.unibl.etf.sni.service;
 
 import jakarta.validation.constraints.NotNull;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.unibl.etf.sni.db.BalanceRepository;
 import org.unibl.etf.sni.model.Balance;
 
 @Service
 public class BalanceService {
+
+    @Autowired
     private BalanceRepository balanceRepository;
 
     public Balance addBalance(Balance balance) {
@@ -33,7 +36,21 @@ public class BalanceService {
     }
 
     public Balance getBalance(String username) {
-        return balanceRepository.findByUsername(username).orElse(null);
+        try {
+            Balance balance = balanceRepository.findByUsername(username).orElse(null);
+
+            if (balance == null) {
+                balance = new Balance(username, 0.0);
+                balanceRepository.save(balance);
+                return balance;
+            }
+
+            return balance;
+        } catch (Exception ex) {
+            // throw bc what can happen ???
+            ex.printStackTrace();
+            throw ex;
+        }
     }
 
     public boolean deleteBalance(String username) {
