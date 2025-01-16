@@ -1,5 +1,6 @@
 package org.unibl.etf.sni.controller;
 
+import io.jsonwebtoken.ExpiredJwtException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
@@ -11,10 +12,8 @@ import org.springframework.web.bind.annotation.*;
 import org.unibl.etf.sni.auth.*;
 import org.unibl.etf.sni.controller.response.SimpleResponse;
 import org.unibl.etf.sni.model.*;
-import org.unibl.etf.sni.security.AccessController;
-import org.unibl.etf.sni.security.OtpDbManagerThread;
+import org.unibl.etf.sni.security.*;
 import org.unibl.etf.sni.service.*;
-
 import java.net.URI;
 
 @RestController
@@ -34,6 +33,9 @@ public class AuthController {
     @Autowired
     private AccessController accessController;
 
+    @Autowired
+    private JwtService jwtService;
+
     public AuthController(PasswordEncoder passwordEncoder) {
         this.passwordEncoder = passwordEncoder;
     }
@@ -41,6 +43,16 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody AuthRequest request) {
         SimpleResponse response = new SimpleResponse();
+
+        if (accessController.userAlreadySignedIn(request.getUsername())) {
+            String token = JwtStore.getInstance().getTokenByUsername(request.getUsername()).getToken();
+
+            System.out.println("Already logged in: " + request.getUsername() +", " + token);
+            response.setMessage("Already logged in.");
+
+            response.addAditional("token", token);
+            return new ResponseEntity<>(response, HttpStatus.ACCEPTED);
+        }
 
         User user = userService.findByUsername(request.getUsername());
         if (user == null) {
@@ -80,7 +92,8 @@ public class AuthController {
     }
 
     @PostMapping("/otp")
-    public ResponseEntity<?> otp(@RequestParam(name = "username") String username, @RequestParam(name = "otp") String otp) {
+    public ResponseEntity<?> otp(@RequestParam(name = "username") String username, @RequestParam(name = "otp") String otp,
+                                 HttpServletRequest request) {
         SimpleResponse response = new SimpleResponse();
 
 
@@ -103,7 +116,11 @@ public class AuthController {
         String password = otpService.deleteOtp(username);
 
         // login user
-        JwtAuthResponse jwtAuthResponse = authService.login(new AuthRequest(username, password));
+        JwtAuthResponse jwtAuthResponse = authService.login(
+                new AuthRequest(username, password),
+                request.getRemoteAddr(),
+                request.getHeader("User-Agent")
+        );
 
         // assign jwt
         JwtStore.getInstance().assignToken(username, new ParsableJwt(jwtAuthResponse.getToken()));
@@ -127,7 +144,7 @@ public class AuthController {
 
         accessController.registerUser(request.formUser());
         response.setMessage("Successfully registered.");
-        return new ResponseEntity<>(response, HttpStatus.OK);
+        return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
 
     @PostMapping("/logout")
@@ -140,5 +157,75 @@ public class AuthController {
         accessController.logout(token);
 
         return new ResponseEntity<>(headers, HttpStatus.MOVED_PERMANENTLY);
+    }
+
+    @GetMapping("/role")
+    public ResponseEntity<?> getRole(HttpServletRequest request) {
+        System.out.println("GET /api/auth/role");
+        System.out.println("Authorization: " + request.getHeader("Authorization"));
+
+        SimpleResponse response = new SimpleResponse();
+        String authHeader = request.getHeader("Authorization");
+        String token = AccessController.extractToken(authHeader);
+
+        if (!accessController.authenticateRequest(request, response, token)) {
+            response.setMessage("Invalid or expired token.");
+            return new ResponseEntity<>(response, HttpStatus.UNAUTHORIZED);
+        }
+
+        ParsableJwt jwt = JwtStore.getInstance().getToken(AccessController.extractToken(authHeader));
+        if (jwt == null) {
+            response.setMessage("Token not found in context.");
+            return new ResponseEntity<>(response, HttpStatus.UNAUTHORIZED);
+        }
+
+        response.setMessage("Valid token.");
+        response.addAditional("role", jwt.getPayload().getRole());
+        return new ResponseEntity<>(response, HttpStatus.OK);
+    }
+
+    @PostMapping("/extend-token")
+    public ResponseEntity<?> extendToken(HttpServletRequest request) {
+        SimpleResponse response = new SimpleResponse();
+        String authHeader = request.getHeader("Authorization");
+        String expiredToken = AccessController.extractToken(authHeader);
+
+        if (expiredToken == null || expiredToken.isEmpty()) {
+            return new ResponseEntity<>("Token is required", HttpStatus.BAD_REQUEST);
+        }
+
+        try {
+            ParsableJwt jwt = JwtStore.getInstance().getToken(AccessController.extractToken(authHeader));
+            if (jwt == null) {
+                response.setMessage("Token not found in context.");
+                return new ResponseEntity<>(response, HttpStatus.UNAUTHORIZED);
+            }
+
+            if (!jwt.isExpired()) {
+                response.setMessage("Token is not expired.");
+                return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+            }
+
+            // replace token in JwtStore
+            String newToken = jwtService.extendToken(expiredToken);
+            JwtStore.getInstance().unassignToken(jwt.getPayload().getSub());
+            JwtStore.getInstance().assignToken(jwt.getPayload().getSub(), new ParsableJwt(newToken));
+
+            response.setMessage("Successfully extended token.");
+            response.addAditional("token", newToken);
+
+            System.out.println(response);
+            return new ResponseEntity<>(response, HttpStatus.OK);
+        } catch (ExpiredJwtException exception) {
+            exception.printStackTrace();
+            response.setMessage("Token is expired. Generating a new token.");
+            String newToken = jwtService.extendToken(expiredToken);
+            response.addAditional("token", newToken);
+            return new ResponseEntity<>(response, HttpStatus.OK);
+        } catch (Exception exception) {
+            response.setMessage(exception.getMessage());
+            exception.printStackTrace();
+            return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
     }
 }

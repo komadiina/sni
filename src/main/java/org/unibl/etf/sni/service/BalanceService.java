@@ -1,5 +1,6 @@
 package org.unibl.etf.sni.service;
 
+import jakarta.validation.constraints.NotNull;
 import org.springframework.stereotype.Service;
 import org.unibl.etf.sni.db.BalanceRepository;
 import org.unibl.etf.sni.model.Balance;
@@ -10,6 +11,13 @@ public class BalanceService {
 
     public Balance addBalance(Balance balance) {
         return balanceRepository.save(balance);
+    }
+
+    public Balance increase(@NotNull String username, @NotNull Double amount) {
+        Balance balance = getBalance(username);
+        balance.setAmount(balance.getAmount() + amount);
+        balanceRepository.save(balance);
+        return balance;
     }
 
     public boolean updateBalance(String username, Balance balance) {

@@ -1,52 +1,65 @@
-import axios from "axios"
+import axios from "axios";
 
-let axiosConfig = {
-  headers: {
-    'Content-Type': 'application/json',
-    'Accept': '*/*',
-    // 'Accept-Encoding': 'gzip, deflate, br',
-    // 'Connection': 'keep-alive',
-  },
-  baseURL: 'https://localhost:8443',
-  url: '/api'
-}
-
-const redirectUnauthorized = async () => {
-  localStorage.clear();
-  axiosConfig.headers.Authorization = null;
-
-  window.location.href = "/login";
-}
-
-const api = {
-  get: async (url) => axios.get(url, axiosConfig).catch(error => {
-    redirectUnauthorized(error);
-  }),
-
-  post: async (url, data) => axios.post(url, data, axiosConfig).catch(error => {
-    redirectUnauthorized(error);
-  }),
-
-  put: async (url, data) => axios.put(url, data, axiosConfig).catch(error => {
-    redirectUnauthorized(error);
-  }),
-
-  delete: async (url) => axios.delete(url, axiosConfig).catch(error => {
-    redirectUnauthorized(error);
-  }),
-
-  setToken: async (token) => axiosConfig.headers.Authorization = `Bearer ${token}`,
-  setRole: async (role) => localStorage.setItem("role", role),
-
-  redirectToDashboard: async () => {
-    if (localStorage.getItem("role") === "0") {
-      window.location.href = "/dashboard/admin";
-    } else if (localStorage.getItem("role") === "1") {
-      window.location.href = "/dashboard/user";
-    } else {
-      window.location.href = "/login";
+export const api = {
+  instance: axios.create({ baseURL: import.meta.env.VITE_API_HOST }),
+  setToken: (token) => localStorage.setItem("jwt", token),
+  getToken: () => localStorage.getItem("jwt"),
+  isSignedIn: () => api.getToken() !== null && api.getToken() !== "undefined" && api.getToken() !== undefined,
+  getRole: () => {
+    if (api.isSignedIn()) {
+      return JSON.parse(atob(api.getToken().split(".")[1])).role;
     }
+  },
+  clearToken: () => localStorage.removeItem("jwt"),
+  redirectUnauthorized: () => {
+    api.clearToken();
+    window.location.href = "/login";
+  },
+  redirectToDashboard: () => {
+    let role = api.getRole();
+    console.log("role:" +role);
+
+    if (api.getRole() === "0")
+      window.location.href = "/admin";
+    else if (api.getRole() === "1")
+      window.location.href = "/dashboard"
+    else window.location.href = "/login"
+  },
+  signOut: () => {
+    api.instance.post("https://localhost:8443/api/auth/logout", {}, {headers: {Authorization: `Bearer ${api.getToken()}`}});
+
+    api.clearToken();
+    localStorage.removeItem('username')
+    window.location.href = "/login";
+  },
+  extendToken: () => {
+    api.instance.post(
+      "https://localhost:8443/api/auth/extend-token",
+      {},
+      {headers: {Authorization: `Bearer ${api.getToken()}`}}
+    ).then((res) => {
+      console.log(res.data)
+      api.redirectToDashboard();
+    })
   }
-}
+};
+
+api.instance.interceptors.request.use((config) => {
+  const jwt = api.getToken();
+  if (jwt) config.headers.Authorization = `Bearer ${api.getToken()}`;
+  config.headers["Content-Type"] = "application/json";
+  return config;
+});
+
+api.instance.interceptors.response.use(
+  response => response,
+  error => {
+    if (error.response.status === 401 || error.response.status === 403) {
+      window.location.href = '/token-expired'
+    }
+    return Promise.reject(error);
+  }
+);
+
 
 export default api;

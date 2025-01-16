@@ -33,5 +33,11 @@ build/
 .vscode/
 
 ### Secrets ###
-*.bak
+application.properties
 credentials.json
+paypalConfig.js
+/tokens
+
+### trash ###
+/logs
+/node_modules

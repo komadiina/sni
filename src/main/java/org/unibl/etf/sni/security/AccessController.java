@@ -2,20 +2,19 @@ package org.unibl.etf.sni.security;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.constraints.NotNull;
-import org.hibernate.validator.internal.constraintvalidators.bv.notempty.NotEmptyValidatorForArray;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.unibl.etf.sni.auth.JwtStore;
 import org.unibl.etf.sni.auth.RegisterRequest;
 import org.unibl.etf.sni.auth.RegistrationRequestResponse;
-import org.unibl.etf.sni.model.ParsableJwt;
+import org.unibl.etf.sni.controller.response.SimpleResponse;
 import org.unibl.etf.sni.model.User;
+import org.unibl.etf.sni.model.Balance;
 import org.unibl.etf.sni.service.BalanceService;
 import org.unibl.etf.sni.service.UserService;
-
-import java.lang.reflect.Field;
-import java.util.Base64;
 
 @Service
 public class AccessController {
@@ -49,6 +48,7 @@ public class AccessController {
     public void registerUser(User user) {
         user.setPassword(new BCryptPasswordEncoder().encode(user.getPassword()));
         userService.addUser(user);
+        balanceService.addBalance(new Balance(user.getUsername(), 0.0));
     }
 
     public boolean validBalanceAmount(User user, double requiredAmount) {
@@ -122,7 +122,13 @@ public class AccessController {
     }
 
     public boolean isAuthenticated(@NotNull String bearerToken) {
+        if (bearerToken == null)
+            return false;
+
+        System.out.println(bearerToken);
+        JwtStore.getInstance().getTokens().forEach(System.out::println);
         ParsableJwt jwt = new ParsableJwt(bearerToken);
+        if (JwtStore.getInstance().getToken(jwt.getToken()) == null) return false;
 
         // verify that token is not expired
         if (jwt.isExpired() || jwt.getPayload().getIat() > System.currentTimeMillis() / 1000) {
@@ -138,13 +144,54 @@ public class AccessController {
         return null;
     }
 
+    public boolean userAlreadySignedIn(String username) {
+        return JwtStore.getInstance().getTokenByUsername(username) != null && !JwtStore.getInstance().getTokenByUsername(username).isExpired();
+    }
+
     public void logout(String token) {
         ParsableJwt jwt = JwtStore.getInstance().getToken(token);
-
-        jwt.invalidate();
-        JwtStore.getInstance().updateToken(jwt);
-
         JwtStore.getInstance().unassignToken(jwt.getPayload().getSub());
         JwtStore.getInstance().removeToken(jwt);
+    }
+
+    public boolean notSpoofed(String tokenValue, String userAgent, String remoteAddr) {
+        try {
+            ParsableJwt jwt = new ParsableJwt(tokenValue);
+            ParsableJwt found = JwtStore.getInstance().getToken(jwt.getToken());
+
+            if (userAgent != null && !userAgent.equals(found.getPayload().getUserAgent())) return false;
+            else if (remoteAddr != null && !remoteAddr.equals(found.getPayload().getIp())) return false;
+
+            return JwtStore.getInstance().hasToken(jwt) != null && jwt.equals(found);
+        } catch (NullPointerException ex) {
+            return false;
+        }
+    }
+
+    public boolean authenticateRequest(HttpServletRequest request, SimpleResponse response, String token) {
+        if (!isAuthenticated(token)) {
+            response.addAditional("code", "401");
+            response.setMessage("Unauthorized");
+            return false;
+        }
+
+        if (!notSpoofed(token, request.getHeader("User-Agent"), request.getRemoteAddr())) {
+            response.addAditional("code", "401");
+            response.setMessage("Malicious token request detected.");
+            logout(token);
+            return false;
+        }
+
+        return true;
+    }
+
+    public ResponseEntity<?> validateRequest(HttpServletRequest request) {
+        SimpleResponse response = new SimpleResponse();
+        if (!isRequestAcceptable(request)) {
+            response.setMessage("Invalid or expired token.");
+            return new ResponseEntity<>(response, HttpStatus.UNAUTHORIZED);
+        }
+
+        return null;
     }
 }

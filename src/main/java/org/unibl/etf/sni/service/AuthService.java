@@ -20,14 +20,14 @@ public class AuthService {
         this.authenticationManager = authenticationManager;
     }
 
-    public JwtAuthResponse login(AuthRequest request) {
+    public JwtAuthResponse login(AuthRequest request, String remoteAddr, String userAgent) {
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword()));
 
         var user = userRepository.findByUsername(request.getUsername())
                 .orElseThrow(() -> new InvalidUsernameException("Invalid username or password."));
 
-        var jwt = jwtService.generateToken(user);
+        var jwt = jwtService.generateToken(user, remoteAddr, userAgent);
         return new JwtAuthResponse(jwt);
     }
 }

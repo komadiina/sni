@@ -1,7 +1,6 @@
 package org.unibl.etf.sni.auth;
 
-import org.springframework.security.core.parameters.P;
-import org.unibl.etf.sni.model.ParsableJwt;
+import org.unibl.etf.sni.security.ParsableJwt;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -24,12 +23,14 @@ public class JwtStore {
     // to prevent malicious token usage, 'remember' who uses it
     public void assignToken(String username, ParsableJwt jwt) {
         assignedTokens.put(username, jwt);
+        addToken(jwt);
     }
 
     public void unassignToken(String username) {
         ParsableJwt jwt = assignedTokens.get(username);
         assignedTokens.remove(username);
         removeToken(jwt);
+        removeTokenByUsername(username);
     }
 
     // TODO: review if something breaks
@@ -41,7 +42,12 @@ public class JwtStore {
         tokens.add(token);
     }
 
+    public void removeTokenByUsername(String username) {
+        tokens.removeIf(t -> t.getPayload().getSub().equals(username));
+    }
+
     public void removeToken(ParsableJwt parsableJwt) {
+        System.out.println("Removing: " + parsableJwt);
         tokens.remove(parsableJwt);
     }
 
@@ -51,6 +57,10 @@ public class JwtStore {
 
     public ParsableJwt getToken(String token) {
         return tokens.stream().filter(t -> t.getToken().equals(token)).findFirst().orElse(null);
+    }
+
+    public ParsableJwt hasToken(ParsableJwt jwt) {
+        return tokens.stream().filter(t -> t.equals(jwt)).findFirst().orElse(null);
     }
 
     public ParsableJwt getTokenByUsername(String username) {

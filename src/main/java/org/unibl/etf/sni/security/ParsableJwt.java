@@ -1,5 +1,6 @@
-package org.unibl.etf.sni.model;
+package org.unibl.etf.sni.security;
 
+import javassist.compiler.ast.Symbol;
 import org.springframework.boot.configurationprocessor.json.JSONException;
 import org.springframework.boot.configurationprocessor.json.JSONObject;
 
@@ -66,12 +67,42 @@ public class ParsableJwt {
         private Long iat;
         private Long exp;
 
+        // extra claims
+        private String ip;
+        private String userAgent;
+
         public Payload() {}
         public Payload(String role, String sub, Long iat, Long exp) {
             this.role = role;
             this.sub = sub;
             this.iat = iat;
             this.exp = exp;
+        }
+
+        public Payload(String role, String sub, Long iat, Long exp, String ip, String userAgent) {
+            this.role = role;
+            this.sub = sub;
+            this.iat = iat;
+            this.exp = exp;
+
+            this.ip = ip;
+            this.userAgent = userAgent;
+        }
+
+        public String getIp() {
+            return ip;
+        }
+
+        public void setIp(String ip) {
+            this.ip = ip;
+        }
+
+        public String getUserAgent() {
+            return userAgent;
+        }
+
+        public void setUserAgent(String userAgent) {
+            this.userAgent = userAgent;
         }
 
         public String getRole() {
@@ -110,11 +141,24 @@ public class ParsableJwt {
             JSONObject jsonObject = new JSONObject(decodedPayloadString);
 
             try {
+                try {
+                    String ip = null, userAgent = null;
+
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+                if (jsonObject.has("ip") || jsonObject.has("userAgent")) {
+                    ip = jsonObject.getString("ip");
+                    userAgent = jsonObject.getString("userAgent");
+                }
+
                 return new Payload(
                         jsonObject.getString("role"),
                         jsonObject.getString("sub"),
                         jsonObject.getLong("iat"),
-                        jsonObject.getLong("exp")
+                        jsonObject.getLong("exp"),
+                        ip,
+                        userAgent
                 );
             } catch (Exception e) {
                 e.printStackTrace();
@@ -137,7 +181,19 @@ public class ParsableJwt {
             if (this == o) return true;
             if (o == null || getClass() != o.getClass()) return false;
             Payload payload = (Payload) o;
-            return Objects.equals(role, payload.role) && Objects.equals(sub, payload.sub) && Objects.equals(iat, payload.iat) && Objects.equals(exp, payload.exp);
+
+            boolean flag = true;
+            if (ip != null)
+                flag = Objects.equals(ip, payload.ip);
+
+            if (userAgent != null)
+                flag = Objects.equals(userAgent, payload.userAgent);
+
+            return flag &&
+                    Objects.equals(role, payload.role) &&
+                    Objects.equals(sub, payload.sub) &&
+                    Objects.equals(iat, payload.iat) &&
+                    Objects.equals(exp, payload.exp);
         }
 
         @Override

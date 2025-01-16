@@ -17,6 +17,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import org.unibl.etf.sni.logging.SIEM;
 import org.unibl.etf.sni.service.JwtService;
 import org.unibl.etf.sni.service.UserService;
 
@@ -28,6 +29,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     @Autowired
     private UserService userService;
+    @Autowired
+    private SIEM sIEM;
 
 //    public JwtAuthenticationFilter(JwtService jwtService, UserService userService) {
 //        this.jwtService = jwtService;
@@ -44,15 +47,32 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return;
         }
 
+        if ("/api/auth/extend-token".equals(request.getRequestURI())) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
         final String jwt;
-        final String username;
+        String username;
         if (!authHeader.startsWith("Bearer ")) {
             filterChain.doFilter(request, response);
             return;
         }
 
         jwt = authHeader.substring(7);
-        username = jwtService.extractUserName(jwt);
+        try {
+            username = jwtService.extractUserName(jwt);
+        } catch (Exception e) {
+            SIEM siem = new SIEM();
+            siem.logMaliciousRequest(request.getRemoteAddr(), request.getHeader("User-Agent"), request.getRequestURI(),
+                    "[SIEM] Malicious request detected - token expired.");
+
+            // Respond with a status code or message indicating token expiration
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            response.getWriter().write("{\n\t\"code\": \"Token expired. Use /api/auth/extend-token to extend your session\"\n}");
+            return;
+        }
+
 
         if (!username.isEmpty()
                 && SecurityContextHolder.getContext().getAuthentication() == null) {

@@ -1,6 +1,5 @@
-import { useState } from "react";
 import api from "../api/axios";
-
+import { useState } from "react";
 
 export default function OTP(props) {
   const [message, setMessage] = useState("");
@@ -11,11 +10,11 @@ export default function OTP(props) {
       let data, status = {};
 
       const response = await api.instance.post(
-        `${ import.meta.env.VITE_API_HOST }/auth/otp?otp=${ otp }&username=${ localStorage.getItem("username") }`
+        `${import.meta.env.VITE_API_HOST}/auth/otp?otp=${otp}&username=${localStorage.getItem("username")}`
       ).then((response) => {
-          data = response.data;
-          status = response.status;
-        })
+        data = response.data;
+        status = response.status;
+      })
         .catch((error) => {
           data = error.response.data;
           status = error.response.status;
@@ -54,6 +53,6 @@ export default function OTP(props) {
 
         }
       </div>
-    </div>
-  )
-}
+      </div>
+      )
+      }

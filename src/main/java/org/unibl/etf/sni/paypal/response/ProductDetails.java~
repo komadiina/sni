@@ -1,0 +1,39 @@
+package org.unibl.etf.sni.paypal.response;
+
+public class ProductDetails {
+    /*
+    example:
+    "id": "PROD-32L8127185610912R",
+    "name": "Life insurance policy",
+    "description": "Life insurance policy",
+    "type": "SERVICE",
+    "category": "INSURANCE_AUTO_AND_HOME",
+    "image_url": "https://example.com/streaming.jpg",
+    "home_url": "https://example.com/home",
+    "create_time": "2025-01-15T21:09:08Z",
+    "update_time": "2025-01-15T21:09:08Z",
+    "links": [
+        {
+            "href": "https://api.sandbox.paypal.com/v1/catalogs/products/PROD-32L8127185610912R",
+            "rel": "self",
+            "method": "GET"
+        },
+        {
+            "href": "https://api.sandbox.paypal.com/v1/catalogs/products/PROD-32L8127185610912R",
+            "rel": "edit",
+            "method": "PATCH"
+        }
+    ]
+    */
+
+    private String id;
+    private String name;
+    private String description;
+    private String type;
+    private String category;
+    private String image_url;
+    private String home_url;
+    private String create_time;
+    private String update_time;
+    private ProductCatalogLinks[] links;
+}
