@@ -63,4 +63,11 @@ public class BalanceService {
         balanceRepository.delete(balance);
         return true;
     }
+
+    public Balance decreaseBalance(String username, Double amount) {
+        Balance balance = getBalance(username);
+        balance.setAmount(balance.getAmount() - amount);
+        balanceRepository.save(balance);
+        return balance;
+    }
 }

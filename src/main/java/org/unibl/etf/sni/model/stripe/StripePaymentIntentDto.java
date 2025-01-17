@@ -4,14 +4,23 @@ public class StripePaymentIntentDto {
     private Long amount;
     private String currency;
     private String paymentMethod;
-
+    private String productID;
 
     public StripePaymentIntentDto() {}
 
-    public StripePaymentIntentDto(Long amount, String currency, String paymentMethod) {
+    public StripePaymentIntentDto(Long amount, String currency, String paymentMethod, String productID) {
         this.amount = amount;
         this.currency = currency;
         this.paymentMethod = paymentMethod;
+        this.productID = productID;
+    }
+
+    public String getProductID() {
+        return productID;
+    }
+
+    public void setProductID(String productID) {
+        this.productID = productID;
     }
 
     public Long getAmount() {

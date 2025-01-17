@@ -36,8 +36,3 @@ build/
 application.properties
 credentials.json
 paypalConfig.js
-/tokens
-
-### trash ###
-/logs
-/node_modules

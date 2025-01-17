@@ -64,6 +64,10 @@ public class AccessController {
 //        return balanceService.getBalance(user.getUsername()).getAmount() >= requiredAmount;
     }
 
+    public boolean userHasEnoughBalance(String username, Double required) {
+        return balanceService.getBalance(username).getAmount() >= required;
+    }
+
     private boolean assureNonNullity(RegisterRequest req) {
         if (notEmpty(req.getUsername()) && notEmpty(req.getPassword()) && notEmpty(req.getPasswordConfirmation())
                 && notEmpty(req.getEmail()) && notEmpty(req.getFirstName()) && notEmpty(req.getLastName())

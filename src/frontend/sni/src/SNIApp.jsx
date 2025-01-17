@@ -28,8 +28,8 @@ function SNIApp() {
 
         <Route path="/token-expired" element={<TokenExpired />} />
 
-        <Route path="/payment/:productId" element={<StripePayment/>}/>
-        <Route path="/payment-completion" element={<StripePaymentCompletion/>}/>
+        <Route path="/checkout/:productId" element={<StripePayment/>}/>
+        <Route path="/completion" element={<StripePaymentCompletion/>}/>
 
         <Route path="*" element={<NotFound />} />
       </Routes>

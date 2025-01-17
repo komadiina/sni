@@ -4,13 +4,14 @@ import api from "../api/axios.js";
 const getProducts = async () => {
   let data = { };
 
-  const response = await api.instance.get("https://localhost:8443/api/paypal/catalog")
+  const response = await api.instance.get("https://localhost:8443/api/stripe/product")
     .then((response) => {
-      data = response.data.map((product) => {
+      data = response.data.additional.products.map((product) => {
         return {
-          id: product.id,
+          id: product.productId,
           name: product.name,
-          description: product.description
+          description: product.description,
+          price: product.price.toFixed(2)
         }
       })
     }).catch((err) => {
@@ -40,6 +41,21 @@ export default function BuyMenu() {
     })
   }, []);
 
+  // const addToCart = async (product) => {
+  //   let cart = JSON.parse(localStorage.getItem("cart")) ?? [];
+  //   cart.push(product);
+  //   localStorage.setItem("cart", JSON.stringify(cart));
+  // }
+
+  const handlePurchase = async (product) => {
+    try {
+      localStorage.setItem('product', JSON.stringify(product))
+      window.location.href = '/checkout/' + product.id
+    } catch (e) {
+      console.error(e)
+    }
+  }
+
   return (
     <div>
       {
@@ -50,10 +66,17 @@ export default function BuyMenu() {
               <div className={"flex flex-col items-start justify-start"}>
                 <p className={"text-2xl font-bold"}>{ product.name }</p>
                 <p className={"text-lg"}>{ product.description }</p>
+                <p className={"text-lg"}>${ product.price }</p>
               </div>
 
 
-              <button className={ "right-0 align-middle p-4 border-2 border-white bg-white bg-opacity-15 text-black font-bold" }>Buy</button>
+              <button className={ "right-0 align-middle p-4 border-2 border-white bg-white bg-opacity-15 text-black font-bold" }
+                      // onClick={async () => { await addToCart(product);}}
+                onClick={async () => { handlePurchase(product); }}
+              >
+
+                Buy
+              </button>
             </div>
           )
         })

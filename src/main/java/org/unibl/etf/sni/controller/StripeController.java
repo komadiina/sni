@@ -6,6 +6,8 @@ import com.stripe.model.*;
 import com.stripe.param.PriceCreateParams;
 import com.stripe.param.ProductCreateParams;
 import com.stripe.param.ProductListParams;
+import com.stripe.param.ProductUpdateParams;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.ws.rs.core.Response;
 import lombok.AllArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,11 +15,19 @@ import org.springframework.boot.configurationprocessor.json.JSONObject;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.unibl.etf.sni.auth.JwtStore;
 import org.unibl.etf.sni.controller.response.SimpleResponse;
+import org.unibl.etf.sni.model.Transaction;
 import org.unibl.etf.sni.model.stripe.*;
+import org.unibl.etf.sni.security.AccessController;
+import org.unibl.etf.sni.security.ParsableJwt;
+import org.unibl.etf.sni.service.BalanceService;
 import org.unibl.etf.sni.service.StripeService;
+import org.unibl.etf.sni.service.TransactionService;
+import org.unibl.etf.sni.service.UserService;
 
 import java.net.PasswordAuthentication;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -25,22 +35,78 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/stripe")
 public class StripeController {
+    @Autowired
+    private final BalanceService balanceService;
+
+    @Autowired
+    private final TransactionService transactionService;
 
     @Autowired
     private final StripeService stripeService;
 
-    public StripeController(StripeService stripeService) {
+    @Autowired
+    private final AccessController accessController;
+    @Autowired
+    private UserService userService;
+
+    public StripeController(BalanceService balanceService, TransactionService transactionService, StripeService stripeService, AccessController accessController) {
+        this.balanceService = balanceService;
+        this.transactionService = transactionService;
         this.stripeService = stripeService;
+        this.accessController = accessController;
     }
 
     @PostMapping("/payment-intent")
-    public ResponseEntity<?> createCardToken(@RequestBody StripePaymentIntentDto model) {
+    public ResponseEntity<?> createCardToken(@RequestBody StripePaymentIntentDto model, HttpServletRequest request) {
         SimpleResponse response = new SimpleResponse();
 
         try {
-            // ne moze da mi serijalizuje PaymentIntent ??? ALOOO JACKSON
-            PaymentIntent paymentIntent = stripeService.createPaymentIntent(model);
+            // fetch username from header
+            ParsableJwt jwt = JwtStore.getInstance().getToken(AccessController.extractToken(request.getHeader("Authorization")));
+            String username = jwt.getPayload().getSub();
 
+            // check if user has enough balance
+            Double productPrice = 0.0;
+
+            if (model.getProductID() != null) {
+                productPrice = stripeService.getProductPrice(model.getProductID());
+            } else {
+                response.setMessage("Product ID cannot be null.");
+                return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+            }
+
+            Transaction transaction = new Transaction();
+
+            // hotfix, jer moram konvertovati izmedju double i long
+            model.setAmount(model.getAmount() * 100);
+
+            if (!accessController.userHasEnoughBalance(username, productPrice)) {
+                transaction.setAccepted(false);
+                transaction.setUsername(username);
+                transaction.setTimestamp(LocalDateTime.now());
+                transaction.setStripeProductId(model.getProductID());
+                transaction.setTotal(productPrice);
+                transaction.setCurrency(model.getCurrency());
+                transaction.setRejectReason("INSUFFICIENT_BALANCE");
+                transactionService.addTransaction(transaction);
+
+                response.setMessage("Not enough balance");
+                return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+            } else {
+                transaction.setAccepted(true);
+                transaction.setUsername(username);
+                transaction.setTimestamp(LocalDateTime.now());
+                transaction.setStripeProductId(model.getProductID());
+                transaction.setTotal(productPrice);
+                transaction.setCurrency(model.getCurrency());
+                transaction = transactionService.addTransaction(transaction);
+
+                balanceService.decreaseBalance(username, productPrice);
+            }
+
+            PaymentIntent paymentIntent = stripeService.createPaymentIntent(model);
+            String email = userService.findByUsername(username).getEmail();
+            stripeService.sendMail(email, transaction, Product.retrieve(model.getProductID()));
             return new ResponseEntity<>(paymentIntent.toJson(), HttpStatus.OK);
         } catch (Exception e) {
             System.err.println(model.toString());
@@ -57,27 +123,36 @@ public class StripeController {
     public ResponseEntity<?> addProduct(@RequestBody StripeProductDto dto) {
         SimpleResponse response = new SimpleResponse();
 
-        // ??? kreira proizvod i vrati id sve super ali ga ne mogu get-ovati??
-        // Invalid null ID found for url path formatting. This can be because your string ID argument to the API method is null, or the ID field in your stripe object instance is null.
         try {
-            ProductCreateParams params = ProductCreateParams.builder()
-                    .setName(dto.getName())
-                    .setDescription(dto.getDescription())
-                    .setActive(true)
-                    .build();
-
-            Product product = Product.create(params);
             Long priceValue = ((Double)(dto.getPrice() * 100.0)).longValue();
+            Stripe.apiKey = stripeService.getSecretKey();
 
-            // update price
-            PriceCreateParams priceParams = PriceCreateParams.builder()
-                    .setCurrency("usd")
-                    .setProduct(product.getId())
+
+            ProductCreateParams productCreateParams = ProductCreateParams.builder()
+                .setName(dto.getName())
+                .setDescription(dto.getDescription())
+                .setActive(true)
+                .build();
+
+            Product product = Product.create(productCreateParams);
+            dto.setProductId(product.getId());
+
+            PriceCreateParams params = PriceCreateParams.builder()
+                .setCurrency("usd")
+                .setProduct(product.getId())
+                .setUnitAmount(priceValue)
+                .build();
+
+            Price price = Price.create(params);
+
+            // assign price and update the product
+            ProductUpdateParams updateParams = ProductUpdateParams.builder()
+                    .setDefaultPrice(price.getId())
                     .build();
 
-            Price price = Price.create(priceParams);
+            product.update(updateParams);
+            dto.setProductId(price.getProduct());
 
-            dto.setProductId(product.getId());
             response.setMessage("Product creation successful.");
             response.addAditional("product", dto);
             return new ResponseEntity<>(response, HttpStatus.OK);
@@ -110,7 +185,9 @@ public class StripeController {
                 Double productPrice = 0.0;
 
                 try {
-                    productPrice = Price.retrieve(product.getDefaultPrice()).getUnitAmount() / 100.0;
+                    System.out.println(product.getId() + ":" + product.getDefaultPrice());
+                    productPrice = Price.retrieve(product.getDefaultPrice())
+                            .getUnitAmount() / 100.0;
                 } catch (StripeException e) {
                     e.printStackTrace();
                     return;
