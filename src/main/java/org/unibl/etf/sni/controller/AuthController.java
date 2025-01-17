@@ -72,32 +72,32 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody AuthRequest request) {
+    public ResponseEntity<?> login(@RequestBody AuthRequest authRequest, HttpServletRequest request) {
         SimpleResponse response = new SimpleResponse();
 
-        if (accessController.userAlreadySignedIn(request.getUsername())) {
-            String token = JwtStore.getInstance().getTokenByUsername(request.getUsername()).getToken();
+        if (accessController.userAlreadySignedIn(authRequest.getUsername())) {
+            String token = JwtStore.getInstance().getTokenByUsername(authRequest.getUsername()).getToken();
 
-            System.out.println("Already logged in: " + request.getUsername() +", " + token);
+            System.out.println("Already logged in: " + authRequest.getUsername() +", " + token);
             response.setMessage("Already logged in.");
 
             response.addAditional("token", token);
             return new ResponseEntity<>(response, HttpStatus.ACCEPTED);
         }
 
-        User user = userService.findByUsername(request.getUsername());
+        User user = userService.findByUsername(authRequest.getUsername());
         if (user == null) {
             response.setMessage("Invalid credentials");
             return new ResponseEntity<>(response, HttpStatus.NOT_FOUND);
         }
 
-        if (!new BCryptPasswordEncoder().matches(request.getPassword(), user.getPassword())) {
+        if (!new BCryptPasswordEncoder().matches(authRequest.getPassword(), user.getPassword())) {
             response.setMessage("Invalid credentials.");
             return new ResponseEntity<>(response, HttpStatus.NOT_FOUND);
         }
 
         // generate & save otp
-        Otp otp = otpService.generateOtp(user.getUsername(), request.getPassword());
+        Otp otp = otpService.generateOtp(user.getUsername(), authRequest.getPassword());
         otpService.storeOtp(otp);
 
         // instantiate deletion task
@@ -107,7 +107,7 @@ public class AuthController {
 
         // send email
         try {
-            otpService.sendOtp(user.getEmail(), otp.getOtpValue());
+            otpService.sendOtp(user, otp.getOtpValue(), request);
         } catch (Exception e) {
             response.setMessage("Failed to send email.");
             return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);

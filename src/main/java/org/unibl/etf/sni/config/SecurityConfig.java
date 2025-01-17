@@ -45,8 +45,9 @@ public class SecurityConfig {
                 .authorizeHttpRequests((auth) -> auth
                         .requestMatchers("/api/admin", "/api/admin/**").hasRole("0")
                         .requestMatchers("/api/user", "/api/user/**").hasAnyRole("1", "0")
-                        .requestMatchers("/api/paypal/**", "/api/paypal/order/catalog").hasAnyRole("1", "0")
-                        .requestMatchers("/api/balance", "/api/balance/**").hasAnyRole("1", "0") // deep-filtering
+                        .requestMatchers("/api/paypal", "/api/paypal/**").hasAnyRole("1", "0")
+                        .requestMatchers("/api/stripe", "/api/stripe/**").hasAnyRole("1", "0")
+                        .requestMatchers("/api/balance", "/api/balance/**").hasAnyRole("1", "0")
                         .requestMatchers("/api/auth/**").permitAll()
                 )
                 .cors(Customizer.withDefaults())
@@ -91,8 +92,7 @@ public class SecurityConfig {
     }
 
     @Bean
-    public AuthenticationManager authenticationManager(AuthenticationConfiguration config)
-            throws Exception {
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
         return config.getAuthenticationManager();
     }
 

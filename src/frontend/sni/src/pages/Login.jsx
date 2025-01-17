@@ -41,7 +41,7 @@ const Login = () => {
       })
         .catch((error) => {
           console.log(error);
-          // data = error.response.data;
+          localStorage.setItem('message', error.response.data.message)
           status = error.response.status;
         });
 

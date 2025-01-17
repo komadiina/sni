@@ -20,12 +20,14 @@ import org.springframework.web.bind.annotation.*;
 import org.unibl.etf.sni.controller.response.SimpleResponse;
 import org.unibl.etf.sni.paypal.response.ProductCatalog;
 
+import javax.swing.plaf.BorderUIResource;
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.util.*;
 
+@Deprecated
 @RestController
 @RequestMapping("/api/paypal")
 public class PaypalController {
@@ -51,6 +53,19 @@ public class PaypalController {
         try {
             String cart = objectMapper.writeValueAsString(request.get("cart"));
             Order response = createOrder(cart);
+            return new ResponseEntity<>(response, HttpStatus.OK);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    @PostMapping("/order/{orderID}/capture")
+    public ResponseEntity<Order> captureOrder(@PathVariable String orderID, @RequestBody Map<String, Object> body) {
+        System.out.println("orderID: " + orderID);
+
+        try {
+            Order response = captureOrders(orderID, body);
             return new ResponseEntity<>(response, HttpStatus.OK);
         } catch (Exception e) {
             e.printStackTrace();
@@ -119,17 +134,6 @@ public class PaypalController {
         }
     }
 
-    @PostMapping("/order/{orderID}/capture")
-    public ResponseEntity<Order> captureOrder(@PathVariable String orderID) {
-        try {
-            Order response = captureOrders(orderID);
-            return new ResponseEntity<>(response, HttpStatus.OK);
-        } catch (Exception e) {
-            e.printStackTrace();
-            return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
-        }
-    }
-
     public SimpleResponse getToken() {
         try {
             String base64 = PAYPAL_CLIENT_ID + ":" + PAYPAL_CLIENT_SECRET;
@@ -186,12 +190,13 @@ public class PaypalController {
         return apiResponse.getResult();
     }
 
-    private Order captureOrders(String orderID) throws IOException, ApiException {
+    private Order captureOrders(String orderID, Map<String, Object> body) throws IOException, ApiException {
         OrdersCaptureInput ordersCaptureInput = new OrdersCaptureInput.Builder(
                 orderID,
-                null)
+                "application/json")
                 .build();
         OrdersController ordersController = client.getOrdersController();
+        System.out.println(ordersCaptureInput.toString());
         ApiResponse<Order> apiResponse = ordersController.ordersCapture(ordersCaptureInput);
         return apiResponse.getResult();
     }

@@ -4,6 +4,7 @@ import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
 import com.google.api.client.http.javanet.NetHttpTransport;
 import com.google.api.services.gmail.Gmail;
 import jakarta.mail.MessagingException;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.NoArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,6 +14,7 @@ import org.unibl.etf.sni.db.OtpRepository;
 import org.unibl.etf.sni.mail.GmailHTMLSender;
 import org.unibl.etf.sni.mail.GmailIntegration;
 import org.unibl.etf.sni.model.Otp;
+import org.unibl.etf.sni.model.User;
 
 import java.time.LocalDateTime;
 import java.util.*;
@@ -73,11 +75,25 @@ public class OtpService {
         }
     }
 
-    public void sendOtp(String email, String otp) {
-        // TODO
-        System.out.println("Mailing OTP to " + email);
+    public void sendOtp(User user, String otp, HttpServletRequest request) {
+        // da ne moram gledati na telefon svaki put
+        System.out.println("Sending OTP: " + otp);
+
         String htmlBody = String.format(
-                "<html><body><h1>Hello.</h1>We have received a new login request from You. Your authentication code is: <b>%s</b></body></html>",
+                "<html>" +
+                    "<body>" +
+                        "<p>Dear <b>%s</b>,</p><br/>" +
+                        "We have received a request to access your account from a new location.<br/>" +
+                        "The following IP Address is making the request: %s.<br/><br/>" +
+                        "To complete this process, please enter the following code into the authorization box: <br/><br/>" +
+                        "<b>%s</b><br/>" +
+                        "If you did not make this request, please ignore this email. Thank you for your cooperation.<br/><br/>" +
+                        "<i>Please do not reply to this message. Replies to this message are routed to an unmonitored mailbox. <br/>" +
+                        "If you have any questions, please contact support.</i>" +
+                    "</body>" +
+                "</html>",
+                    user.getUsername(),
+                    request.getRemoteAddr(),
                 otp);
 
         try {
@@ -89,12 +105,12 @@ public class OtpService {
             GmailHTMLSender.sendHtmlEmail(
                     service,
                     "me",
-                    email,
+                    user.getEmail() ,
                     "bigblue9992@gmail.com",
                     "New login request - your authentication code",
                     htmlBody);
         } catch (Exception ex) {
-            System.err.println("Unable to send email to " + email + ", reason: " + ex.getMessage());
+            System.err.println("Unable to send email to " + user.getEmail() + ", reason: " + ex.getMessage());
             ex.printStackTrace();
         }
     }

@@ -30,8 +30,10 @@ public class RequestLoggingFilter extends HttpFilter {
                 "/api/auth/login",
                 "/api/auth/otp",
                 "/api/auth/register",
-                "/api/order",
-                "/api/order/.*",
+                "/api/paypal",
+                "/api/paypal/.*",
+                "/api/paypal/order",
+                "/api/paypal/order/.*",
                 "/api/auth/.*"
         ));
     }
@@ -50,7 +52,6 @@ public class RequestLoggingFilter extends HttpFilter {
             chain.doFilter(request, response);
             return;
         }
-
 
         // HAHSHAHAHHAHAHA JER SAM DODAO <METHOD> PREFIKS U ENDPOINT PA GA NE WHITELISTUJE ASDASDNAKJSDNASKJH IZGORIO
         if (endpoint.contains(" "))
